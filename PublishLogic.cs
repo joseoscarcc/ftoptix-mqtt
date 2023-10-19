@@ -7,6 +7,12 @@ using OpcUa = UAManagedCore.OpcUa;
 using FTOptix.NetLogic;
 using FTOptix.UI;
 using FTOptix.OPCUAServer;
+
+using System.Collections.Generic;
+using System.Net;
+using System.Net.Sockets;
+
+
 #endregion
 using uPLibrary.Networking.M2Mqtt;
 using uPLibrary.Networking.M2Mqtt.Messages;
@@ -19,6 +25,8 @@ using FTOptix.Store;
 using FTOptix.ODBCStore;
 using FTOptix.DataLogger;
 using FTOptix.Recipe;
+using Newtonsoft.Json.Linq;
+using System.Linq;
 
 public class PublicLogic : BaseNetLogic
 {
@@ -41,8 +49,8 @@ public class PublicLogic : BaseNetLogic
         publishClient.MqttMsgPublished += PublishClientMqttMsgPublished;
 
         
-        //MiTask = new PeriodicTask(PublishMessage, 250, LogicObject);
-        //MiTask.Start();
+        MiTask = new PeriodicTask(PublishMessage, 250, LogicObject);
+        MiTask.Start();
 
     }
 
@@ -57,114 +65,39 @@ public class PublicLogic : BaseNetLogic
         Log.Info("Message " + e.MessageId + " - published = " + e.IsPublished);
     }
 
-    [ExportMethod]
     public void PublishMessage()
     {
-        float Mixer_temperature = Project.Current.GetVariable("Model/Asset Indicators/Mixer/Mixer_Temperature").Value;
-        float Mixer_Pressure = Project.Current.GetVariable("Model/Asset Indicators/Mixer/Mixer_Pressure").Value;
-        float Mixer_Vibration = Project.Current.GetVariable("Model/Asset Indicators/Mixer/Mixer_Vibration").Value;
-        float Oven_temperature = Project.Current.GetVariable("Model/Asset Indicators/Oven/Oven_Temperature").Value;
-        float Oven_Pressure = Project.Current.GetVariable("Model/Asset Indicators/Oven/Oven_Pressure").Value;
-        float Oven_Vibration = Project.Current.GetVariable("Model/Asset Indicators/Oven/Oven_Vibration").Value;
-        float Packaging_temperature = Project.Current.GetVariable("Model/Asset Indicators/Packaging/Packaging_Temperature").Value;
-        float Packaging_Pressure = Project.Current.GetVariable("Model/Asset Indicators/Packaging/Packaging_Pressure").Value;
-        float Packaging_Vibration = Project.Current.GetVariable("Model/Asset Indicators/Packaging/Packaging_Vibration").Value;
-        float Labeler_temperature = Project.Current.GetVariable("Model/Asset Indicators/Labeler/Labeler_Temperature").Value;
-        float Labeler_Pressure = Project.Current.GetVariable("Model/Asset Indicators/Labeler/Labeler_Pressure").Value;
-        float Labeler_Vibration = Project.Current.GetVariable("Model/Asset Indicators/Labeler/Labeler_Vibration").Value;
+        var dataLoggerStore = LogicObject.GetVariable("DataLogger").Value;
+        var dataInfo = InformationModel.Get<DataLogger>(dataLoggerStore);
 
-        
-            // Get a common timestamp for all variables (assuming Unix timestamp in milliseconds)
-        long timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        // Log.Info(dataInfo.TableName);
+    
+        // foreach (var variableToLog in dataInfo.VariablesToLog.ToList())
+        // {
+        //     Log.Info(variableToLog.BrowseName);
+        //     Log.Info(variableToLog.Value);
+        // }
 
-        // Create a JSON object with your variables and add the timestamp to each variable
-        var jsonData = new
-        {
-            Mixer = new
-            {
-                Temperature = new
-                {
-                    Value = Mixer_temperature,
-                    Timestamp = timestamp
-                },
-                Pressure = new
-                {
-                    Value = Mixer_Pressure,
-                    Timestamp = timestamp
-                },
-                Vibration = new
-                {
-                    Value = Mixer_Vibration,
-                    Timestamp = timestamp
-                }
-            },
-            Oven = new
-            {
-                Temperature = new
-                {
-                    Value = Oven_temperature,
-                    Timestamp = timestamp
-                },
-                Pressure = new
-                {
-                    Value = Oven_Pressure,
-                    Timestamp = timestamp
-                },
-                Vibration = new
-                {
-                    Value = Oven_Vibration,
-                    Timestamp = timestamp
-                }
-            },
-            Packaging = new
-            {
-                Temperature = new
-                {
-                    Value = Packaging_temperature,
-                    Timestamp = timestamp
-                },
-                Pressure = new
-                {
-                    Value = Packaging_Pressure,
-                    Timestamp = timestamp
-                },
-                Vibration = new
-                {
-                    Value = Packaging_Vibration,
-                    Timestamp = timestamp
-                }
-            },
-            Labeler = new
-            {
-                Temperature = new
-                {
-                    Value = Labeler_temperature,
-                    Timestamp = timestamp
-                },
-                Pressure = new
-                {
-                    Value = Labeler_Pressure,
-                    Timestamp = timestamp
-                },
-                Vibration = new
-                {
-                    Value = Labeler_Vibration,
-                    Timestamp = timestamp
-                }
-            }
+        var dataToSerialize = new {
+            TableName = dataInfo.TableName,
+            VariablesToLog = dataInfo.VariablesToLog.Select(v => new {
+                BrowseName = v.BrowseName,
+                Value = v.Value
+            })
         };
 
-        // Serialize the JSON object to a string
-        string jsonMessage = JsonConvert.SerializeObject(jsonData);
-
-        // Publish the JSON message
+        var json = JsonConvert.SerializeObject(dataToSerialize);
         var topic = LogicObject.GetVariable("Topic");
+
         ushort msgId = publishClient.Publish(topic.Value, // topic
-            System.Text.Encoding.UTF8.GetBytes(jsonMessage), // message body
+            System.Text.Encoding.UTF8.GetBytes(json), // message body
             MqttMsgBase.QOS_LEVEL_EXACTLY_ONCE, // QoS level
             false); // retained
         
     }
 
+
     private MqttClient publishClient;
+
+    
 }
