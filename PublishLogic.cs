@@ -28,7 +28,7 @@ using FTOptix.Recipe;
 using Newtonsoft.Json.Linq;
 using System.Linq;
 
-public class PublicLogic : BaseNetLogic
+public class PublicLogic: BaseNetLogic
 {
     private PeriodicTask MiTask;
     public override void Start()
