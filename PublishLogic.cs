@@ -63,7 +63,7 @@ public class PublicLogic: BaseNetLogic
 
     private void PublishClientMqttMsgPublished(object sender, MqttMsgPublishedEventArgs e)
     {
-        Log.Info("Message " + e.MessageId + " - published = " + e.IsPublished);
+        //Log.Info("Message " + e.MessageId + " - published = " + e.IsPublished);
     }
 
     public void PublishMessage()
@@ -105,7 +105,6 @@ public class PublicLogic: BaseNetLogic
         }
 
         string json = JsonConvert.SerializeObject(dictOfDicts, Formatting.Indented);
-        Log.Info(json);
         var topic = LogicObject.GetVariable("Topic");
 
         ushort msgId = publishClient.Publish(topic.Value, // topic
