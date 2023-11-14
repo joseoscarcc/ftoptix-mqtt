@@ -28,7 +28,7 @@ using FTOptix.Recipe;
 using Newtonsoft.Json.Linq;
 using System.Linq;
 
-public class PublicLogic: BaseNetLogic
+public class PublicLogic : BaseNetLogic
 {
     private PeriodicTask MiTask;
     public override void Start()
@@ -71,8 +71,8 @@ public class PublicLogic: BaseNetLogic
         var dataLoggerStore = LogicObject.GetVariable("DataLogger").Value;
         var dataInfo = InformationModel.Get<DataLogger>(dataLoggerStore);
 
-        Dictionary<string, Dictionary<string, string>> dictOfDicts = new Dictionary<string, Dictionary<string, string>>();
-        Dictionary<string, string> currentDict = null;
+        Dictionary<string, Dictionary<string, float>> dictOfDicts = new Dictionary<string, Dictionary<string, float>>();
+        Dictionary<string, float> currentDict = null;
         string lastAssetName = null;
 
         foreach (var variableToLog in dataInfo.VariablesToLog.ToList())
@@ -83,12 +83,12 @@ public class PublicLogic: BaseNetLogic
                 if (lastAssetName != parts[0])
                 {
                     // New asset name, create a new dictionary
-                    currentDict = new Dictionary<string, string>();
+                    currentDict = new Dictionary<string, float>();
                     dictOfDicts[parts[0]] = currentDict;
                     lastAssetName = parts[0];
                 }
                 // Add the variable to the current dictionary
-                currentDict[parts[1]] = variableToLog.Value;
+                currentDict[parts[1]] = float.Parse(variableToLog.Value);
             } 
             else if (parts.Length > 2)
             {
@@ -96,15 +96,21 @@ public class PublicLogic: BaseNetLogic
                 {
                     if (lastAssetName == parts[0])
                     {
-                        currentDict[parts[1] + "_" + parts[2]] = variableToLog.Value;
+                        currentDict[parts[1] + "_" + parts[2]] = float.Parse(variableToLog.Value);
                     }
                 }
             }
-            // Add timestamp to the current dictionary
-            currentDict["Timestamp"] = DateTime.Now.ToString();
+        }
+
+        // Add timestamp to each dictionary after all measurements have been processed
+        double unixTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        foreach (var dict in dictOfDicts.Values)
+        {
+            dict["Timestamp"] = (float)unixTimestamp;
         }
 
         string json = JsonConvert.SerializeObject(dictOfDicts, Formatting.Indented);
+        //Log.Info(json);
         var topic = LogicObject.GetVariable("Topic");
 
         ushort msgId = publishClient.Publish(topic.Value, // topic
